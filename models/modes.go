@@ -5,32 +5,38 @@ import (
 )
 
 type Conditions struct {
-	Field     string
-	Condition string
-	Value     any
+	Field     string `json:"field"`
+	Condition string `json:"condition"`
+	Value     any    `json:"value"`
 }
 
 type Branches struct {
-	Branch_name string     `bson:"branch_name"`
-	Conditions  []Conditions `bson:"conditions"`
-	Actions     []EmailWorkflow    `bson:"actions"`
+	Branch_name string            `json:"branch_name"`
+	Conditions  []Conditions      `json:"conditions"`
+	Actions     []ActionsWorkflow `json:"actions"`
 }
 
-type EmailWorkflow struct {
-	ID                   string                  `bson:"id"`
-	Type                 string                  `bson:"type"`
-	Subject              *string                 `bson:"subject,omitempty"`
-	Template             *string                 `bson:"template,omitempty"`
-	Time_offset          int                     `bson:"time_ofsset"`
-	Aggregation_template string                  `bson:"aggregation_template"`
-	Send_automatically   *bool                   `bson:"send_automatically,omitempty"`
-	Static_vars          *map[string]interface{} `bson:"static_vars,omitempty"`
-	Branches             []Branches                `json:"branches,omitempty"`
+type ActionsWorkflow struct {
+	ID                   string                  `json:"id"`
+	Type                 string                  `json:"type"`
+	Subject              *string                 `json:"subject,omitempty"`
+	Template             *string                 `json:"template,omitempty"`
+	Time_offset          any                     `json:"time_ofsset"`
+	Aggregation_template string                  `json:"aggregation_template"`
+	Send_automatically   *bool                   `json:"send_automatically,omitempty"`
+	Static_vars          *map[string]interface{} `json:"static_vars,omitempty"`
+	Branches             []Branches              `json:"branches,omitempty"`
 }
 
 type Workflows struct {
-	ID          primitive.ObjectID `bson:"_id"`
-	Name        string             `bson:"sequence_name"`
-	Description string             `bson:"description"`
-	Actions     []EmailWorkflow    `bson:"actions"`
+	ID            primitive.ObjectID `bson:"_id"`
+	Sequence_name string             `json:"sequence_name"`
+	Description   string             `json:"description"`
+	Actions       []ActionsWorkflow  `json:"actions"`
+}
+
+type Aggregation struct {
+	Aggregation_name string                 `json:"aggregation_name"`
+	Collection       string                 `json:"collection"`
+	Aggregation      map[string]interface{} `json:"aggregation"`
 }

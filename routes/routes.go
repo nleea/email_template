@@ -9,4 +9,6 @@ func Routes(R *gin.Engine, path string) {
 	router := R.Group(path)
 
 	router.GET("/wokflows", ROUTES.GetWorkflows)
+	router.POST("/create/workflow", ROUTES.SaveWorkflows)
+	router.POST("/create/aggregation", ROUTES.SaveAggregation)
 }

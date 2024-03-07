@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func GetWorkflows(ctx *gin.Context) {
@@ -33,4 +34,49 @@ func GetWorkflows(ctx *gin.Context) {
 	}
 
 	ctx.JSON(200, gin.H{"data": resulst})
+}
+
+func SaveWorkflows(ctx *gin.Context) {
+	envs := CO.ConfigEnv()
+
+	collection := DB_CONNECT.CLIENT_DB.Collection(envs["ATLAS_DB_SEQUENCE"])
+
+	newDocument := M.Workflows{ID: primitive.NewObjectID()}
+	err := ctx.BindJSON(&newDocument)
+	if err != nil {
+		ctx.JSON(400, gin.H{"message": err})
+		return
+	}
+
+	_, erri := collection.InsertOne(context.TODO(), newDocument)
+
+	if erri != nil {
+		ctx.JSON(400, gin.H{"message": err})
+		return
+	}
+
+	ctx.JSON(200, gin.H{"message": "Ok"})
+}
+
+func SaveAggregation(ctx *gin.Context) {
+	envs := CO.ConfigEnv()
+
+	collection := DB_CONNECT.CLIENT_DB.Collection(envs["ATLAS_DB_AGGREGATION"])
+
+	newDocument := M.Aggregation{}
+	err := ctx.BindJSON(&newDocument)
+
+	if err != nil {
+		ctx.JSON(400, gin.H{"message": err})
+		return
+	}
+
+	_, erri := collection.InsertOne(context.TODO(), newDocument)
+
+	if erri != nil {
+		ctx.JSON(400, gin.H{"message": err})
+		return
+	}
+
+	ctx.JSON(200, gin.H{"message": "Ok"})
 }
