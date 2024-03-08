@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	CO "sequency/config"
 	M "sequency/models"
+	UTP "sequency/utils/proccess"
 )
 
 type WorkflowsDB struct {
@@ -116,11 +117,9 @@ func (c *WorkflowsDB) UploadTemplate(ctx *gin.Context) {
 
 func (c *WorkflowsDB) StartTemplate(ctx *gin.Context) {
 	envs := CO.ConfigEnv()
-	collection := c.DB.Collection(envs["WORKFLOW_STATUS"])
+	// collection := c.DB.Collection(envs["WORKFLOW_STATUS"])
 
 	workflowID := ctx.Param("workflow_id")
-
-	fmt.Println(workflowID)
 
 	sequence := c.DB.Collection(envs["ATLAS_DB_SEQUENCE"])
 
@@ -140,15 +139,16 @@ func (c *WorkflowsDB) StartTemplate(ctx *gin.Context) {
 		return
 	}
 
-	_, err := collection.InsertOne(context.TODO(), M.WorkflowStatus{Workflow: workflowID, Actions: &[]M.ActionsWorkflow{},
-		History: &[]M.WorkflowHistory{}, Next_action: "", Timestamp: ""})
-	if err != nil {
-		ctx.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
+	// resulst, err := collection.InsertOne(context.TODO(), M.WorkflowStatus{Workflow: workflowID, Actions: &[]M.ActionsWorkflow{},
+	// 	History: &[]M.WorkflowHistory{}, Next_action: "", Timestamp: ""})
+
+	// if err != nil {
+	// 	ctx.JSON(400, gin.H{"error": err.Error()})
+	// 	return
+	// }
 
 	for i := range wokflows.Actions {
-		fmt.Println(wokflows.Actions[i])
+		UTP.ProcessTemplate(wokflows.Actions[i], workflowID, i)
 	}
 
 	ctx.JSON(200, gin.H{"message": "Ok"})

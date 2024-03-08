@@ -36,9 +36,9 @@ type Workflows struct {
 }
 
 type Aggregation struct {
-	Aggregation_name string                 `json:"aggregation_name"`
-	Collection       string                 `json:"collection"`
-	Aggregation      map[string]interface{} `json:"aggregation"`
+	Aggregation_name string      `json:"aggregation_name"`
+	Collection       string      `json:"collection"`
+	Aggregation      interface{} `json:"aggregation"`
 }
 
 type WorkflowHistory struct {
@@ -53,4 +53,10 @@ type WorkflowStatus struct {
 	History     *[]WorkflowHistory `bson:"history"`
 	Next_action string             `bson:"next_action"`
 	Timestamp   any                `bson:"timestamp"`
+}
+
+type MessageNSQ struct {
+	Name      string `json:"name"`
+	Content   string `json:"content"`
+	Timestamp string `json:"time_stamp"`
 }
