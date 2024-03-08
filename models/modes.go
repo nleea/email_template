@@ -40,3 +40,17 @@ type Aggregation struct {
 	Collection       string                 `json:"collection"`
 	Aggregation      map[string]interface{} `json:"aggregation"`
 }
+
+type WorkflowHistory struct {
+	ID        string `json:"id"`
+	Timestamp any    `json:"timestamp"`
+	Status    string `json:"status"`
+}
+
+type WorkflowStatus struct {
+	Workflow    string             `bson:"workflow"`
+	Actions     *[]ActionsWorkflow `bson:"actions"`
+	History     *[]WorkflowHistory `bson:"history"`
+	Next_action string             `bson:"next_action"`
+	Timestamp   any                `bson:"timestamp"`
+}

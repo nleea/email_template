@@ -3,20 +3,25 @@ package router
 import (
 	"context"
 	"fmt"
-	CO "sequency/config"
-	DB_CONNECT "sequency/db"
-	M "sequency/models"
-
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"os"
+	"path/filepath"
+	CO "sequency/config"
+	M "sequency/models"
 )
 
-func GetWorkflows(ctx *gin.Context) {
+type WorkflowsDB struct {
+	DB *mongo.Database
+}
+
+func (c *WorkflowsDB) GetWorkflows(ctx *gin.Context) {
 
 	envs := CO.ConfigEnv()
 
-	collection := DB_CONNECT.CLIENT_DB.Collection(envs["ATLAS_DB_SEQUENCE"])
+	collection := c.DB.Collection(envs["ATLAS_DB_SEQUENCE"])
 
 	cursor, err := collection.Find(context.TODO(), bson.D{})
 
@@ -36,10 +41,10 @@ func GetWorkflows(ctx *gin.Context) {
 	ctx.JSON(200, gin.H{"data": resulst})
 }
 
-func SaveWorkflows(ctx *gin.Context) {
+func (c *WorkflowsDB) SaveWorkflows(ctx *gin.Context) {
 	envs := CO.ConfigEnv()
 
-	collection := DB_CONNECT.CLIENT_DB.Collection(envs["ATLAS_DB_SEQUENCE"])
+	collection := c.DB.Collection(envs["ATLAS_DB_SEQUENCE"])
 
 	newDocument := M.Workflows{ID: primitive.NewObjectID()}
 	err := ctx.BindJSON(&newDocument)
@@ -58,10 +63,10 @@ func SaveWorkflows(ctx *gin.Context) {
 	ctx.JSON(200, gin.H{"message": "Ok"})
 }
 
-func SaveAggregation(ctx *gin.Context) {
+func (c *WorkflowsDB) SaveAggregation(ctx *gin.Context) {
 	envs := CO.ConfigEnv()
 
-	collection := DB_CONNECT.CLIENT_DB.Collection(envs["ATLAS_DB_AGGREGATION"])
+	collection := c.DB.Collection(envs["ATLAS_DB_AGGREGATION"])
 
 	newDocument := M.Aggregation{}
 	err := ctx.BindJSON(&newDocument)
@@ -76,6 +81,74 @@ func SaveAggregation(ctx *gin.Context) {
 	if erri != nil {
 		ctx.JSON(400, gin.H{"message": err})
 		return
+	}
+
+	ctx.JSON(200, gin.H{"message": "Ok"})
+}
+
+func (c *WorkflowsDB) UploadTemplate(ctx *gin.Context) {
+	file, err := ctx.FormFile("file")
+
+	if err != nil {
+		ctx.JSON(400, gin.H{"error": err})
+		return
+	}
+
+	path, errgwd := os.Getwd()
+
+	if errgwd != nil {
+		ctx.JSON(400, gin.H{"error": errgwd})
+		return
+	}
+
+	filePath := filepath.Join(path, "templates", file.Filename)
+
+	errupload := ctx.SaveUploadedFile(file, filePath)
+
+	if errupload != nil {
+		fmt.Println("There was error uploading the file", errupload)
+		ctx.JSON(400, gin.H{"error": errupload.Error()})
+		return
+	}
+
+	ctx.JSON(200, gin.H{"message": "Ok"})
+}
+
+func (c *WorkflowsDB) StartTemplate(ctx *gin.Context) {
+	envs := CO.ConfigEnv()
+	collection := c.DB.Collection(envs["WORKFLOW_STATUS"])
+
+	workflowID := ctx.Param("workflow_id")
+
+	fmt.Println(workflowID)
+
+	sequence := c.DB.Collection(envs["ATLAS_DB_SEQUENCE"])
+
+	var wokflows M.Workflows
+
+	id, errWorkId := primitive.ObjectIDFromHex(workflowID)
+
+	if errWorkId != nil {
+		ctx.JSON(400, gin.H{"error": errWorkId.Error()})
+		return
+	}
+
+	errFind := sequence.FindOne(context.TODO(), bson.M{"_id": id}).Decode(&wokflows)
+
+	if errFind != nil {
+		ctx.JSON(400, gin.H{"error": errFind.Error()})
+		return
+	}
+
+	_, err := collection.InsertOne(context.TODO(), M.WorkflowStatus{Workflow: workflowID, Actions: &[]M.ActionsWorkflow{},
+		History: &[]M.WorkflowHistory{}, Next_action: "", Timestamp: ""})
+	if err != nil {
+		ctx.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	for i := range wokflows.Actions {
+		fmt.Println(wokflows.Actions[i])
 	}
 
 	ctx.JSON(200, gin.H{"message": "Ok"})
