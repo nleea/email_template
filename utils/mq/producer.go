@@ -74,7 +74,7 @@ func (C ConnectionMQ) SendMessage(body []byte) {
 		false,     // immediate
 		amqp091.Publishing{
 			ContentType: "text/plain",
-			Body:        []byte("Text message"),
+			Body:        body,
 		},
 	)
 
@@ -102,6 +102,7 @@ func (C ConnectionMQ) PollMq() {
 		false,
 		nil,
 	)
+
 	if err != nil {
 		panic(err)
 	}

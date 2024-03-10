@@ -4,44 +4,63 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	CO "sequency/config"
 	DB "sequency/db"
 	M "sequency/models"
 	PR "sequency/utils/mq"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type WorkflowsMQ struct {
 	MQ *PR.ConnectionMQ
 }
 
-func (c *WorkflowsMQ) ProcessTemplate(process M.ActionsWorkflow, workflowId string, statusId interface{}) {
+type SendEmailStrunc struct {
+	Email_info interface{} `bson:"email_info"`
+	Data       any         `json:"data"`
+}
+
+func (c *WorkflowsMQ) ProcessTemplate(params M.ProcessParams) {
+
 	envs := CO.ConfigEnv()
 	collection := DB.CLIENT_DB.Collection(envs["ATLAS_DB_AGGREGATION"])
+	var resulst M.Aggregation
+	err := collection.FindOne(context.TODO(), bson.M{"aggregation_name": params.Process.Aggregation_template}).Decode(&resulst)
 
-	switch process.Type {
+	if err != nil {
+		fmt.Println("error", err)
+		return
+	}
+
+	collectionToAggregate := DB.CLIENT_DB.Collection(resulst.Collection)
+
+	switch params.Process.Type {
 	case "email":
 
-		if process.Send_automatically != nil {
-			var resulst M.Aggregation
-			err := collection.FindOne(context.TODO(), bson.M{"aggregation_name": process.Aggregation_template}).Decode(&resulst)
+		if params.Process.Send_automatically != nil || params.Exec != nil {
+
+			fmt.Println(resulst.Aggregation, resulst.Collection)
+
+			v := bson.D{{Key: "$addFields", Value: bson.D{{Key: "email_info", Value: bson.D{{Key: "from_address", Value: "$from_address"}}}}}}
+
+			fmt.Println(v)
+
+			cursor, err := collectionToAggregate.Aggregate(context.TODO(), mongo.Pipeline{v})
 
 			if err != nil {
 				fmt.Println("error", err)
 				return
 			}
 
-			collectionToAggregate := DB.CLIENT_DB.Collection(resulst.Collection)
-			cursor, err := collectionToAggregate.Aggregate(context.TODO(), resulst.Aggregation)
-
-			if err != nil {
-				fmt.Println("error", err)
-				return
-			}
-
-			var dataAggregation interface{}
+			var dataAggregation SendEmailStrunc
 			cursor.All(context.TODO(), &dataAggregation)
+
+			d, _ := cursor.Current.Elements()
+
+			fmt.Println(d)
 
 			resulstt, errM := json.Marshal(&dataAggregation)
 
@@ -53,35 +72,17 @@ func (c *WorkflowsMQ) ProcessTemplate(process M.ActionsWorkflow, workflowId stri
 			c.MQ.SendMessage(resulstt)
 
 		} else {
-			collectionToSaveStatusE := DB.CLIENT_DB.Collection(envs["WORKFLOW_STATUS"])
-			filter := bson.D{{Key: "_id", Value: statusId}}
-			update := bson.D{{Key: "$addToSet", Value: bson.D{{Key: "actions", Value: process}}}}
-			collectionToSaveStatusE.UpdateOne(context.TODO(), filter, update)
+			g := make([]M.ActionsWorkflow, 1)
+			g[0] = params.Process
+			SaveActions(envs["WORKFLOW_STATUS"], g, params.WorkflowId, params.StatusId, c)
 		}
 
 	case "decision":
 
-		for i := range process.Branches {
-			agg := make([]bson.D, len(process.Branches[i].Conditions))
-			for c := range process.Branches[i].Conditions {
-				f := bson.D{
-					{Key: process.Branches[i].Conditions[c].Field,
-						Value: bson.D{{
-							Key:   "$" + process.Branches[i].Conditions[c].Condition,
-							Value: process.Branches[i].Conditions[c].Value,
-						}}},
-				}
-
-				agg[c] = f
-			}
+		for i := range params.Process.Branches {
+			agg := MakeAggregation(params.Process.Branches[i].Conditions)
 
 			y := bson.D{{Key: "$match", Value: bson.D{{Key: "$and", Value: agg}}}}
-
-			collectionTo := DB.CLIENT_DB.Collection(envs["ATLAS_DB_AGGREGATION"])
-			var g M.Aggregation
-
-			collectionTo.FindOne(context.TODO(), bson.M{"aggregation_name": process.Aggregation_template}).Decode(&g)
-			collectionToAggregate := DB.CLIENT_DB.Collection(g.Collection)
 
 			cursor, err := collectionToAggregate.Aggregate(context.TODO(), mongo.Pipeline{y})
 
@@ -94,20 +95,41 @@ func (c *WorkflowsMQ) ProcessTemplate(process M.ActionsWorkflow, workflowId stri
 			cursor.All(context.TODO(), &t)
 
 			if t != nil {
-
-				for x := range process.Branches[i].Actions {
-					if process.Branches[i].Actions[x].Type == "email" {
-						collectionToSaveStatus := DB.CLIENT_DB.Collection(envs["WORKFLOW_STATUS"])
-						filter := bson.D{{Key: "_id", Value: statusId}}
-						update := bson.D{{Key: "$addToSet", Value: bson.D{{Key: "actions", Value: process.Branches[i].Actions[i]}}}}
-						collectionToSaveStatus.UpdateOne(context.TODO(), filter, update)
-						continue
-					}
-					c.ProcessTemplate(process.Branches[i].Actions[x], workflowId, statusId)
-				}
+				SaveActions(envs["WORKFLOW_STATUS"], params.Process.Branches[i].Actions, params.WorkflowId, params.StatusId, c)
 				break
 			}
-
 		}
+	}
+}
+
+func MakeAggregation(conditions []M.Conditions) []primitive.D {
+	agg := make([]bson.D, len(conditions))
+	for c := range conditions {
+		f := bson.D{
+			{Key: conditions[c].Field,
+				Value: bson.D{{
+					Key:   "$" + conditions[c].Condition,
+					Value: conditions[c].Value,
+				}}},
+		}
+
+		agg[c] = f
+	}
+
+	return agg
+}
+
+func SaveActions(collection string, actions []M.ActionsWorkflow, workflowId string, statusId interface{}, c *WorkflowsMQ) {
+	for x := range actions {
+
+		if actions[x].Type == "email" {
+			collectionToSaveStatus := DB.CLIENT_DB.Collection(collection)
+			filter := bson.D{{Key: "_id", Value: statusId}}
+			update := bson.D{{Key: "$push", Value: bson.D{{Key: "actions", Value: actions[x]}}}}
+			collectionToSaveStatus.UpdateOne(context.TODO(), filter, update)
+			continue
+		}
+		paramsTo := M.ProcessParams{Process: actions[x], WorkflowId: workflowId, StatusId: statusId}
+		c.ProcessTemplate(paramsTo)
 	}
 }

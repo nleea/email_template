@@ -152,8 +152,8 @@ func (c *WorkflowsDB) StartTemplate(ctx *gin.Context) {
 	rt := UTP.WorkflowsMQ{MQ: c.MQ}
 
 	for i := range wokflows.Actions {
-
-		rt.ProcessTemplate(wokflows.Actions[i], workflowID, resulst.InsertedID)
+		params := M.ProcessParams{WorkflowId: workflowID, Process: wokflows.Actions[i], StatusId: resulst.InsertedID}
+		rt.ProcessTemplate(params)
 	}
 
 	ctx.JSON(200, gin.H{"message": "Ok"})

@@ -60,3 +60,10 @@ type MessageNSQ struct {
 	Content   string `json:"content"`
 	Timestamp string `json:"time_stamp"`
 }
+
+type ProcessParams struct {
+	Process    ActionsWorkflow
+	WorkflowId string
+	StatusId   interface{}
+	Exec       *bool
+}
