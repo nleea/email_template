@@ -117,7 +117,7 @@ func (c *WorkflowsDB) UploadTemplate(ctx *gin.Context) {
 
 func (c *WorkflowsDB) StartTemplate(ctx *gin.Context) {
 	envs := CO.ConfigEnv()
-	// collection := c.DB.Collection(envs["WORKFLOW_STATUS"])
+	collection := c.DB.Collection(envs["WORKFLOW_STATUS"])
 
 	workflowID := ctx.Param("workflow_id")
 
@@ -139,16 +139,16 @@ func (c *WorkflowsDB) StartTemplate(ctx *gin.Context) {
 		return
 	}
 
-	// resulst, err := collection.InsertOne(context.TODO(), M.WorkflowStatus{Workflow: workflowID, Actions: &[]M.ActionsWorkflow{},
-	// 	History: &[]M.WorkflowHistory{}, Next_action: "", Timestamp: ""})
+	resulst, err := collection.InsertOne(context.TODO(), M.WorkflowStatus{Workflow: workflowID, Actions: &[]M.ActionsWorkflow{},
+		History: &[]M.WorkflowHistory{}, Next_action: "", Timestamp: ""})
 
-	// if err != nil {
-	// 	ctx.JSON(400, gin.H{"error": err.Error()})
-	// 	return
-	// }
+	if err != nil {
+		ctx.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
 
 	for i := range wokflows.Actions {
-		UTP.ProcessTemplate(wokflows.Actions[i], workflowID, i)
+		UTP.ProcessTemplate(wokflows.Actions[i], workflowID, resulst.InsertedID)
 	}
 
 	ctx.JSON(200, gin.H{"message": "Ok"})

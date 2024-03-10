@@ -4,7 +4,6 @@ import (
 	"github.com/gin-gonic/gin"
 	DB "sequency/db"
 	R "sequency/routes"
-	NSQ "sequency/utils/nsq"
 )
 
 func main() {
@@ -14,8 +13,6 @@ func main() {
 	DB.ConnectDB()
 
 	R.Routes(r, "v1")
-
-	go NSQ.ProcessOrderNSQ()
 
 	r.Run()
 }

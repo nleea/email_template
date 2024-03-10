@@ -21,7 +21,7 @@ type ActionsWorkflow struct {
 	Type                 string                  `json:"type"`
 	Subject              *string                 `json:"subject,omitempty"`
 	Template             *string                 `json:"template,omitempty"`
-	Time_offset          any                     `json:"time_ofsset"`
+	Time_offset          any                     `json:"time_offset"`
 	Aggregation_template string                  `json:"aggregation_template"`
 	Send_automatically   *bool                   `json:"send_automatically,omitempty"`
 	Static_vars          *map[string]interface{} `json:"static_vars,omitempty"`
