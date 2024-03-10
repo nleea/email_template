@@ -11,11 +11,13 @@ import (
 	"path/filepath"
 	CO "sequency/config"
 	M "sequency/models"
+	PR "sequency/utils/mq"
 	UTP "sequency/utils/proccess"
 )
 
 type WorkflowsDB struct {
 	DB *mongo.Database
+	MQ *PR.ConnectionMQ
 }
 
 func (c *WorkflowsDB) GetWorkflows(ctx *gin.Context) {
@@ -147,8 +149,11 @@ func (c *WorkflowsDB) StartTemplate(ctx *gin.Context) {
 		return
 	}
 
+	rt := UTP.WorkflowsMQ{MQ: c.MQ}
+
 	for i := range wokflows.Actions {
-		UTP.ProcessTemplate(wokflows.Actions[i], workflowID, resulst.InsertedID)
+
+		rt.ProcessTemplate(wokflows.Actions[i], workflowID, resulst.InsertedID)
 	}
 
 	ctx.JSON(200, gin.H{"message": "Ok"})

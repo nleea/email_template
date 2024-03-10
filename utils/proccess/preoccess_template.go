@@ -2,15 +2,21 @@ package proccess
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	CO "sequency/config"
 	DB "sequency/db"
 	M "sequency/models"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
+	PR "sequency/utils/mq"
 )
 
-func ProcessTemplate(process M.ActionsWorkflow, workflowId string, statusId interface{}) {
+type WorkflowsMQ struct {
+	MQ *PR.ConnectionMQ
+}
+
+func (c *WorkflowsMQ) ProcessTemplate(process M.ActionsWorkflow, workflowId string, statusId interface{}) {
 	envs := CO.ConfigEnv()
 	collection := DB.CLIENT_DB.Collection(envs["ATLAS_DB_AGGREGATION"])
 
@@ -37,7 +43,15 @@ func ProcessTemplate(process M.ActionsWorkflow, workflowId string, statusId inte
 			var dataAggregation interface{}
 			cursor.All(context.TODO(), &dataAggregation)
 
-			
+			resulstt, errM := json.Marshal(&dataAggregation)
+
+			if errM != nil {
+				fmt.Println("error", err)
+				return
+			}
+
+			c.MQ.SendMessage(resulstt)
+
 		} else {
 			collectionToSaveStatusE := DB.CLIENT_DB.Collection(envs["WORKFLOW_STATUS"])
 			filter := bson.D{{Key: "_id", Value: statusId}}
@@ -89,7 +103,7 @@ func ProcessTemplate(process M.ActionsWorkflow, workflowId string, statusId inte
 						collectionToSaveStatus.UpdateOne(context.TODO(), filter, update)
 						continue
 					}
-					ProcessTemplate(process.Branches[i].Actions[x], workflowId, statusId)
+					c.ProcessTemplate(process.Branches[i].Actions[x], workflowId, statusId)
 				}
 				break
 			}

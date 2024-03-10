@@ -5,12 +5,13 @@ import (
 	DB "sequency/db"
 	ROUTES "sequency/routes/router"
 	EMAIL "sequency/utils/emails"
+	RB "sequency/utils/mq"
 )
 
-func Routes(R *gin.Engine, path string) {
+func Routes(R *gin.Engine, RMQ *RB.ConnectionMQ, path string) {
 
 	// Controller
-	workflowRoutes := &ROUTES.WorkflowsDB{DB: DB.CLIENT_DB}
+	workflowRoutes := &ROUTES.WorkflowsDB{DB: DB.CLIENT_DB, MQ: RMQ}
 
 	// Routes
 	router := R.Group(path)
