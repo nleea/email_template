@@ -2,9 +2,10 @@ package mq
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-
 	"github.com/rabbitmq/amqp091-go"
+	EM "sequency/utils/emails"
 )
 
 type ConnectionMQ struct {
@@ -86,6 +87,18 @@ func (C ConnectionMQ) SendMessage(body []byte) {
 	fmt.Println("Successfully published message")
 }
 
+type EmailInfoData struct {
+	Subject      string `json:"subject"`
+	To_address   string `json:"to_address"`
+	From_address string `json:"fom_address"`
+	From_name    string `json:"from_name"`
+}
+
+type SendEmailStrunc struct {
+	Email_info []map[string]string `json:"email_info"`
+	Data       any                 `json:"data"`
+}
+
 func (C ConnectionMQ) PollMq() {
 
 	channel, err := C.MQ.Channel()
@@ -110,7 +123,15 @@ func (C ConnectionMQ) PollMq() {
 	forever := make(chan bool)
 	go func() {
 		for msg := range msgs {
-			fmt.Printf("Received Message: %s\n", msg.Body)
+			var dataAggregation []SendEmailStrunc
+			json.Unmarshal(msg.Body, &dataAggregation)
+
+			EM.SendEmail(
+				dataAggregation[0].Email_info[2]["Value"],
+				dataAggregation[0].Email_info[1]["Value"],
+				dataAggregation[0].Email_info[0]["Value"],
+				"Text")
+
 		}
 	}()
 

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	CO "sequency/config"
-	DB "sequency/db"
 	M "sequency/models"
 	PR "sequency/utils/mq"
 
@@ -16,6 +15,7 @@ import (
 
 type WorkflowsMQ struct {
 	MQ *PR.ConnectionMQ
+	DB *mongo.Database
 }
 
 type SendEmailStrunc struct {
@@ -26,7 +26,7 @@ type SendEmailStrunc struct {
 func (c *WorkflowsMQ) ProcessTemplate(params M.ProcessParams) {
 
 	envs := CO.ConfigEnv()
-	collection := DB.CLIENT_DB.Collection(envs["ATLAS_DB_AGGREGATION"])
+	collection := c.DB.Collection(envs["ATLAS_DB_AGGREGATION"])
 	var resulst M.Aggregation
 	err := collection.FindOne(context.TODO(), bson.M{"aggregation_name": params.Process.Aggregation_template}).Decode(&resulst)
 
@@ -35,32 +35,22 @@ func (c *WorkflowsMQ) ProcessTemplate(params M.ProcessParams) {
 		return
 	}
 
-	collectionToAggregate := DB.CLIENT_DB.Collection(resulst.Collection)
+	collectionToAggregate := c.DB.Collection(resulst.Collection)
 
 	switch params.Process.Type {
 	case "email":
 
 		if params.Process.Send_automatically != nil || params.Exec != nil {
 
-			fmt.Println(resulst.Aggregation, resulst.Collection)
-
-			v := bson.D{{Key: "$addFields", Value: bson.D{{Key: "email_info", Value: bson.D{{Key: "from_address", Value: "$from_address"}}}}}}
-
-			fmt.Println(v)
-
-			cursor, err := collectionToAggregate.Aggregate(context.TODO(), mongo.Pipeline{v})
+			cursor, err := collectionToAggregate.Aggregate(context.TODO(), resulst.Aggregation)
 
 			if err != nil {
 				fmt.Println("error", err)
 				return
 			}
 
-			var dataAggregation SendEmailStrunc
+			var dataAggregation []SendEmailStrunc
 			cursor.All(context.TODO(), &dataAggregation)
-
-			d, _ := cursor.Current.Elements()
-
-			fmt.Println(d)
 
 			resulstt, errM := json.Marshal(&dataAggregation)
 
@@ -123,7 +113,7 @@ func SaveActions(collection string, actions []M.ActionsWorkflow, workflowId stri
 	for x := range actions {
 
 		if actions[x].Type == "email" {
-			collectionToSaveStatus := DB.CLIENT_DB.Collection(collection)
+			collectionToSaveStatus := c.DB.Collection(collection)
 			filter := bson.D{{Key: "_id", Value: statusId}}
 			update := bson.D{{Key: "$push", Value: bson.D{{Key: "actions", Value: actions[x]}}}}
 			collectionToSaveStatus.UpdateOne(context.TODO(), filter, update)

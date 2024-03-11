@@ -9,9 +9,7 @@ import (
 	CO "sequency/config"
 )
 
-var CLIENT_DB *mongo.Database
-
-func ConnectDB() {
+func ConnectDB() *mongo.Database {
 
 	envs := CO.ConfigEnv()
 
@@ -32,5 +30,5 @@ func ConnectDB() {
 	}
 	fmt.Println("Pinged your deployment. You successfully connected to MongoDB!")
 
-	CLIENT_DB = client.Database(envs["ATLAS_DB"])
+	return client.Database(envs["ATLAS_DB"])
 }

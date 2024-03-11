@@ -11,14 +11,16 @@ func main() {
 
 	r := gin.Default()
 
-	DB.ConnectDB()
+	DBCONNECT := DB.ConnectDB()
 	connection := RB.MQ()
 
-	a := RB.ConnectionMQ{MQ: connection}
+	MQCONNECT := RB.ConnectionMQ{MQ: connection}
 
-	R.Routes(r, &a, "v1")
+	routes := R.RoutesDe{DB: DBCONNECT, MQ: MQCONNECT}
 
-	go a.PollMq()
+	routes.Routes(r, "v1")
+
+	go MQCONNECT.PollMq()
 
 	defer connection.Close()
 

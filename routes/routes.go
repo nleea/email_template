@@ -2,16 +2,21 @@ package routes
 
 import (
 	"github.com/gin-gonic/gin"
-	DB "sequency/db"
+	"go.mongodb.org/mongo-driver/mongo"
 	ROUTES "sequency/routes/router"
 	EMAIL "sequency/utils/emails"
 	RB "sequency/utils/mq"
 )
 
-func Routes(R *gin.Engine, RMQ *RB.ConnectionMQ, path string) {
+type RoutesDe struct {
+	DB *mongo.Database
+	MQ RB.ConnectionMQ
+}
+
+func (c RoutesDe) Routes(R *gin.Engine, path string) {
 
 	// Controller
-	workflowRoutes := &ROUTES.WorkflowsDB{DB: DB.CLIENT_DB, MQ: RMQ}
+	workflowRoutes := &ROUTES.WorkflowsDB{DB: c.DB, MQ: &c.MQ}
 
 	// Routes
 	router := R.Group(path)
@@ -20,6 +25,7 @@ func Routes(R *gin.Engine, RMQ *RB.ConnectionMQ, path string) {
 	router.POST("/create/aggregation", workflowRoutes.SaveAggregation)
 	router.POST("/upload/template", workflowRoutes.UploadTemplate)
 	router.GET("/start/template/:workflow_id", workflowRoutes.StartTemplate)
+	router.GET("/exec/template/:workflow_id", workflowRoutes.ExecWorkflow)
 
 	router.POST("test/email", func(ctx *gin.Context) {
 		EMAIL.SendEmail("egresados398@gmail.com", "neldecas12@gmail.com", "Test", "Test")

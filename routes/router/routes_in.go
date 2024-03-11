@@ -3,16 +3,19 @@ package router
 import (
 	"context"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 	"os"
 	"path/filepath"
 	CO "sequency/config"
 	M "sequency/models"
 	PR "sequency/utils/mq"
 	UTP "sequency/utils/proccess"
+
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type WorkflowsDB struct {
@@ -24,7 +27,7 @@ func (c *WorkflowsDB) GetWorkflows(ctx *gin.Context) {
 
 	envs := CO.ConfigEnv()
 
-	collection := c.DB.Collection(envs["ATLAS_DB_SEQUENCE"])
+	collection := c.DB.Collection(envs["emails"])
 
 	cursor, err := collection.Find(context.TODO(), bson.D{})
 
@@ -141,15 +144,15 @@ func (c *WorkflowsDB) StartTemplate(ctx *gin.Context) {
 		return
 	}
 
-	resulst, err := collection.InsertOne(context.TODO(), M.WorkflowStatus{Workflow: workflowID, Actions: &[]M.ActionsWorkflow{},
-		History: &[]M.WorkflowHistory{}, Next_action: "", Timestamp: ""})
+	resulst, err := collection.InsertOne(context.TODO(), M.WorkflowStatus{Workflow: workflowID, Actions: []M.ActionsWorkflow{},
+		History: []M.WorkflowHistory{}, Next_action: "", Timestamp: ""})
 
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	rt := UTP.WorkflowsMQ{MQ: c.MQ}
+	rt := UTP.WorkflowsMQ{MQ: c.MQ, DB: c.DB}
 
 	for i := range wokflows.Actions {
 		params := M.ProcessParams{WorkflowId: workflowID, Process: wokflows.Actions[i], StatusId: resulst.InsertedID}
@@ -157,4 +160,37 @@ func (c *WorkflowsDB) StartTemplate(ctx *gin.Context) {
 	}
 
 	ctx.JSON(200, gin.H{"message": "Ok"})
+}
+
+func (c *WorkflowsDB) ExecWorkflow(ctx *gin.Context) {
+	envs := CO.ConfigEnv()
+	collection := c.DB.Collection(envs["WORKFLOW_STATUS"])
+
+	workflowId := ctx.Param("workflow_id")
+
+	var data M.WorkflowStatus
+	work, _ := primitive.ObjectIDFromHex(workflowId)
+	fmt.Println(collection.Name())
+	err := collection.FindOne(context.TODO(), bson.D{{Key: "_id", Value: work}}).Decode(&data)
+	if err != nil {
+		ctx.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	if data.Timestamp == "" && len(data.Actions) > 1 {
+
+		// action := data.History[0]
+		// nextAction := data.Actions[0]
+		t := time.Now().UTC()
+		// NextActionTime := t.Format("1h")
+		fmt.Println(t)
+		// _, err := collection.UpdateOne(context.TODO(), bson.M{"_id": work}, bson.D{{Key: "$set", Value: bson.A{bson.D{{Key: "next_action", Value: nextAction.ID}}, bson.D{{Key: "timestamp", Value: NextActionTime}}}}})
+
+		// if err != nil {
+		// 	ctx.JSON(400, gin.H{"error": err.Error()})
+		// 	return
+		// }
+	}
+	ctx.JSON(200, gin.H{"message": "Ok"})
+
 }
