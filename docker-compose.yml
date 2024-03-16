@@ -10,3 +10,21 @@ services:
       RABBITMQ_DEFAULT_USER: sqcgo
       RABBITMQ_DEFAULT_PASS: sqcgo
       RABBITMQ_DEFAULT_VHOST: sqcgo
+  mongo:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: nelson
+      MONGO_INITDB_ROOT_PASSWORD: 1zfmnT5CYMLDC61I
+    ports:
+      - 27017:27017
+
+  mongo-express:
+    image: mongo-express
+    restart: always
+    ports:
+      - 8081:8081
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: nelson
+      ME_CONFIG_MONGODB_ADMINPASSWORD: 1zfmnT5CYMLDC61I
+      ME_CONFIG_MONGODB_URL: mongodb://nelson:1zfmnT5CYMLDC61I@mongo:27017/

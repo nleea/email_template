@@ -27,7 +27,7 @@ func (c *WorkflowsDB) GetWorkflows(ctx *gin.Context) {
 
 	envs := CO.ConfigEnv()
 
-	collection := c.DB.Collection(envs["emails"])
+	collection := c.DB.Collection(envs["ATLAS_DB_SEQUENCE"])
 
 	cursor, err := collection.Find(context.TODO(), bson.D{})
 
@@ -145,7 +145,7 @@ func (c *WorkflowsDB) StartTemplate(ctx *gin.Context) {
 	}
 
 	resulst, err := collection.InsertOne(context.TODO(), M.WorkflowStatus{Workflow: workflowID, Actions: []M.ActionsWorkflow{},
-		History: []M.WorkflowHistory{}, Next_action: "", Timestamp: ""})
+		History: []M.WorkflowHistory{}, Next_action: "", Timestamp: 0})
 
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
@@ -170,27 +170,50 @@ func (c *WorkflowsDB) ExecWorkflow(ctx *gin.Context) {
 
 	var data M.WorkflowStatus
 	work, _ := primitive.ObjectIDFromHex(workflowId)
-	fmt.Println(collection.Name())
+
 	err := collection.FindOne(context.TODO(), bson.D{{Key: "_id", Value: work}}).Decode(&data)
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	if data.Timestamp == "" && len(data.Actions) > 1 {
+	fmt.Println("Paso")
+	t := time.Now()
+	NextActionTime := t.Unix()
 
-		// action := data.History[0]
-		// nextAction := data.Actions[0]
-		t := time.Now().UTC()
-		// NextActionTime := t.Format("1h")
-		fmt.Println(t)
-		// _, err := collection.UpdateOne(context.TODO(), bson.M{"_id": work}, bson.D{{Key: "$set", Value: bson.A{bson.D{{Key: "next_action", Value: nextAction.ID}}, bson.D{{Key: "timestamp", Value: NextActionTime}}}}})
+	if data.Timestamp == 0 {
+		nextAction := data.Actions[0]
 
-		// if err != nil {
-		// 	ctx.JSON(400, gin.H{"error": err.Error()})
-		// 	return
-		// }
+		r := time.Duration(nextAction.Time_offset * float64(time.Hour))
+
+		_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": work}, bson.D{{Key: "$set", Value: bson.M{"next_action": nextAction.ID, "timestamp": t.Add(r)}}})
+
+		if err != nil {
+			ctx.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+	} else if int64(data.Timestamp) < NextActionTime {
+		var nextAction M.ActionsWorkflow
+
+		if len(data.Actions) > 1 {
+			nextAction = data.Actions[1]
+		} else {
+			nextAction = data.Actions[0]
+		}
+
+		r := time.Duration(nextAction.Time_offset * float64(time.Hour))
+
+		filter := bson.M{"$set": bson.M{"next_action": nextAction.ID, "timestamp": t.Add(r).Unix()}, "$pop": bson.M{"actions": -1}}
+
+		_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": work}, filter)
+
+		if err != nil {
+			ctx.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+
 	}
+
 	ctx.JSON(200, gin.H{"message": "Ok"})
 
 }

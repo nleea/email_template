@@ -16,6 +16,7 @@ func ConnectDB() *mongo.Database {
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
 	opts := options.Client().ApplyURI(envs["ATLAS_URI"]).SetServerAPIOptions(serverAPI)
 	client, err := mongo.Connect(context.TODO(), opts)
+	fmt.Println(envs["ATLAS_URI"])
 	if err != nil {
 		panic(err)
 	}

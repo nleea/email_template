@@ -21,7 +21,7 @@ type ActionsWorkflow struct {
 	Type                 string                  `json:"type"`
 	Subject              *string                 `json:"subject,omitempty"`
 	Template             *string                 `json:"template,omitempty"`
-	Time_offset          string                  `json:"time_offset"`
+	Time_offset          float64                     `json:"time_offset"`
 	Aggregation_template string                  `json:"aggregation_template"`
 	Send_automatically   *bool                   `json:"send_automatically,omitempty"`
 	Static_vars          *map[string]interface{} `json:"static_vars,omitempty"`
@@ -52,7 +52,7 @@ type WorkflowStatus struct {
 	Actions     []ActionsWorkflow `bson:"actions"`
 	History     []WorkflowHistory `bson:"history"`
 	Next_action string            `bson:"next_action"`
-	Timestamp   any               `bson:"timestamp"`
+	Timestamp   float64               `bson:"timestamp"`
 }
 
 type MessageNSQ struct {
